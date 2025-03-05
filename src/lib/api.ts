@@ -162,3 +162,62 @@ export const exportAttendanceAsPDF = (recordingId: string): void => {
   console.log(`Exporting attendance for recording ${recordingId} as PDF`);
   // In a real implementation, this would generate and download a PDF file
 };
+
+// Create tables in the Supabase database
+export const createTables = async (): Promise<boolean> => {
+  try {
+    const sql = `
+      CREATE TABLE IF NOT EXISTS recordings (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        title VARCHAR(255) NOT NULL,
+        meetLink VARCHAR(255),
+        date DATE,
+        time TIME,
+        duration VARCHAR(50),
+        quality VARCHAR(50),
+        storage VARCHAR(50),
+        status VARCHAR(50)
+      );
+
+      CREATE TABLE IF NOT EXISTS participants (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        recording_id UUID REFERENCES recordings(id),
+        name VARCHAR(255) NOT NULL,
+        email VARCHAR(255)
+      );
+
+      CREATE TABLE IF NOT EXISTS users (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        name VARCHAR(255) NOT NULL,
+        email VARCHAR(255) UNIQUE NOT NULL,
+        avatarUrl VARCHAR(255)
+      );
+    `;
+
+    const { error } = await supabase.from("recordings").select("*"); // dummy query to check connection
+
+    if (error) {
+      console.error("Error checking Supabase connection:", error);
+      return false;
+    }
+
+    // Execute the SQL script (Supabase doesn't directly support multi-statement queries)
+    const statements = sql.split(';');
+    for (const statement of statements) {
+      const trimmedStatement = statement.trim();
+      if (trimmedStatement) {
+        const { error } = await supabase.rpc('execute_sql', { sql: trimmedStatement });
+        if (error) {
+          console.error("Error executing SQL statement:", trimmedStatement, error);
+          return false;
+        }
+      }
+    }
+
+    console.log("Tables created successfully");
+    return true;
+  } catch (error) {
+    console.error("Error creating tables:", error);
+    return false;
+  }
+};
